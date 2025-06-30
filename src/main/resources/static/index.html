@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Dostępne Zajęcia</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f5f5f5;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .details-btn {
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 20px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 15% auto;
+            padding: 20px;
+            width: 50%;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+
+        .close {
+            float: right;
+            font-size: 28px;
+            cursor: pointer;
+        }
+        .form-field {
+            width: 80%;
+            padding: 12px;
+            margin: 10px auto;
+            display: block;
+            font-size: 16px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        .form-button {
+            padding: 12px 24px;
+            font-size: 16px;
+            margin: 10px 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .button-primary {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .button-secondary {
+            background-color: #aaa;
+            color: white;
+        }
+
+    </style>
+</head>
+<body>
+<h2>Dostępne zajęcia</h2>
+<table id="scheduleTable">
+    <thead>
+    <tr>
+        <th>Nazwa zajęć</th>
+        <th>Instruktor</th>
+        <th>Data</th>
+        <th>Godzina</th>
+        <th>Dostępne miejsca</th>
+        <th></th>
+    </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h3>Szczegóły zajęć</h3>
+        <p id="detailsContent"></p>
+        <div id="messageContainer" style="margin-top: 20px;"></div>
+    </div>
+</div>
+
+
+<script>
+    async function loadSchedule() {
+        const response = await fetch('/api/schedule');
+        const data = await response.json();
+        const tbody = document.querySelector('#scheduleTable tbody');
+
+        tbody.innerHTML = '';
+
+        data.forEach(item => {
+            const tr = document.createElement('tr');
+
+            tr.innerHTML = `
+            <td>${item.trainingName}</td>
+            <td>${item.trainerFullName}</td>
+            <td>${item.date}</td>
+            <td>${item.time}</td>
+            <td>${item.availableSlots}</td>
+            <td><button class="details-btn" onclick='showDetails(${JSON.stringify(item)})'>...</button></td>
+        `;
+
+            tbody.appendChild(tr);
+        });
+    }
+
+    function showDetails(item) {
+        const messageContainer = document.getElementById('messageContainer');
+        const detailsContent = document.getElementById('detailsContent');
+        window.currentTrainingItem = item;
+
+        messageContainer.innerHTML = '';
+        detailsContent.innerHTML = '';
+
+        const content = `
+        <h2>${item.trainingName}</h2>
+        <p><strong>Instruktor:</strong> ${item.trainerFullName}</p>
+        <p><strong>${item.date} ${item.time}</strong></p>
+        <p><strong>Lokalizacja:</strong> Sala nr ${item.roomNumber} – ${item.gymName}, ul. ${item.gymAddress}</p>
+        <p><strong>Liczba dostępnych miejsc:</strong> ${item.availableSlots}</p>
+        <hr>
+        <input type="text" id="peselInput" placeholder="Wprowadź PESEL" class="form-field">
+<button onclick="checkReservation('${item.trainingId}', '${item.trainingRoomId}')" class="form-button button-primary">Sprawdź rezerwację</button>
+ `;
+
+        detailsContent.innerHTML = content;
+        document.getElementById('modal').style.display = 'block';
+    }
+
+    async function checkReservation(trainingId, trainingRoomId) {
+        const pesel = document.getElementById('peselInput').value.trim();
+        const messageContainer = document.getElementById('messageContainer');
+        window.currentTrainingId = trainingId;
+        window.currentTrainingRoomId = trainingRoomId;
+
+        if (!pesel) {
+            alert("Wprowadź numer PESEL");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/schedule/check?pesel=${pesel}&trainingId=${trainingId}`);
+            if (!response.ok) throw new Error(response.statusText);
+            const data = await response.json();
+
+            if (data.exists) {
+                messageContainer.innerHTML = `
+                <p style="color: green;">Masz już rezerwację na te zajęcia.</p>
+                <button onclick="cancelReservation('${pesel}', '${trainingId}')" style="padding: 10px 20px; margin-top: 10px; background-color: crimson; color: white; border: none; border-radius: 5px;">
+                    Anuluj rezerwację
+                </button>`;
+            } else {
+                messageContainer.innerHTML = `
+                <p style="color: red;">Nie masz jeszcze rezerwacji.</p>
+                <div id="reservationForm" style="margin-top: 30px;">
+                    <h4>Wypełnij formularz</h4>
+                    <input type="text" id="firstNameInput" placeholder="Imię" class="form-field">
+                    <input type="text" id="lastNameInput" placeholder="Nazwisko" class="form-field">
+                    <div style="display: flex; justify-content: center;">
+                        <button onclick="makeReservation()" class="form-button button-primary">Zarezerwuj</button>
+                        <button onclick="closeModal()" class="form-button button-secondary">Powrót</button>
+                    </div>
+                </div>`;
+            }
+
+            const reservationsResponse = await fetch(`/api/schedule/activeReservations?pesel=${pesel}`);
+            if (!reservationsResponse.ok) throw new Error(reservationsResponse.statusText);
+            const reservations = await reservationsResponse.json();
+
+            if (reservations.length > 0) {
+                let listHtml = '<h4>Twoje aktywne rezerwacje:</h4><ul style="text-align:left;">';
+                reservations.forEach(r => {
+                    const typeList = r.trainingType.join(", ");
+                    listHtml += `<li>Zajęcia: ${typeList} | Data: ${r.date} | Godzina: ${r.time}</li>`;
+                });
+                listHtml += '</ul>';
+                messageContainer.innerHTML += listHtml;
+            } else {
+                messageContainer.innerHTML += '<p>Brak aktywnych rezerwacji.</p>';
+            }
+
+        } catch (e) {
+            console.error("Błąd podczas sprawdzania rezerwacji:", e);
+            messageContainer.innerHTML = `<p style="color: red;">Wystąpił błąd: ${e.message}</p>`;
+        }
+    }
+
+
+    async function makeReservation() {
+        if (window.currentTrainingItem.availableSlots <= 0) {
+            alert("Brak dostępnych miejsc na te zajęcia.");
+            return;
+        }
+        const pesel = document.getElementById("peselInput").value.trim();
+        const firstName = document.getElementById("firstNameInput").value.trim();
+        const lastName = document.getElementById("lastNameInput").value.trim();
+        const trainingId = window.currentTrainingId;
+        const trainingRoomId = window.currentTrainingRoomId;
+
+        if (!pesel || !firstName || !lastName) {
+            alert("Uzupełnij wszystkie pola");
+            return;
+        }
+
+        try {
+            const response = await fetch("/api/schedule/make", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pesel, firstName, lastName, trainingId, trainingRoomId })
+            });
+
+            if (response.ok) {
+                alert("Rezerwacja pomyślna!");
+                closeModal();
+                loadSchedule();
+            } else {
+                const err = await response.json();
+                alert("Błąd: " + (err.message || response.statusText));
+            }
+        } catch (e) {
+            console.error("Błąd przy rezerwacji:", e);
+            alert("Wystąpił błąd podczas rezerwacji.");
+        }
+    }
+
+    async function cancelReservation() {
+        const pesel = document.getElementById("peselInput").value.trim();
+        const trainingId = window.currentTrainingId;
+
+        if (!pesel || !trainingId) {
+            alert("Brakuje danych do anulowania rezerwacji");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/schedule/cancel?pesel=${pesel}&trainingId=${trainingId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) throw new Error("Błąd anulowania");
+
+            alert("Rezerwacja anulowana");
+            closeModal();
+            loadSchedule();
+        } catch (error) {
+            alert("Wystąpił błąd: " + error.message);
+        }
+    }
+
+
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+    }
+
+    window.onload = loadSchedule;
+</script>
+</body>
+</html>
