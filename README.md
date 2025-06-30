@@ -1,3 +1,4 @@
+Projekt zrealizowany w ramach kursu Modelowanie i Analiza Systemów informacyjnych na Polsko-Japońskiej Akademii Technik Komputerowych 
 # System obsługi sieci siłowni
 
 System obsługi sieci siłowni wspiera klientów oraz pracowników w sprawnym korzystaniu z usług dostępnych w placówkach. System pozwala przeglądać i rezerwować zajęcia, odwoływać wcześniej zapisane treningi, rezerwować salę na potrzeby zaplanowanych zajęć, a także zgłaszać zapotrzebowanie na spersonalizowane plany treningowe. Celem systemu jest uproszczenie procesu obsługi klienta oraz usprawnienie organizacji pracy całej sieci siłowni.
